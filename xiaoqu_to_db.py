@@ -39,7 +39,7 @@ if __name__ == '__main__':
     # database = "mongodb"
     # database = "excel"
     # database = "json"
-    database = "csv"
+    database = "mysql"
     ##################################
     db = None
     collection = None
@@ -49,7 +49,7 @@ if __name__ == '__main__':
 
     if database == "mysql":
         import records
-        db = records.Database('mysql://root:123456@localhost/lianjia?charset=utf8', encoding='utf-8')
+        db = records.Database('mysql://root:123456@localhost/lianjia?charset=utf8mb4', encoding='utf-8')
     elif database == "mongodb":
         from pymongo import MongoClient
         conn = MongoClient('localhost', 27017)
@@ -92,6 +92,9 @@ if __name__ == '__main__':
     count = 0
     row = 0
     col = 0
+    batch = 100
+    batch_records = []
+
     for csv in files:
         with open(csv, 'r') as f:
             for line in f:
@@ -123,10 +126,29 @@ if __name__ == '__main__':
                 print("{0} {1} {2} {3} {4} {5}".format(date, district, area, xiaoqu, price, sale))
                 # 写入mysql数据库
                 if database == "mysql":
+                    '''
                     db.query('INSERT INTO xiaoqu (city, date, district, area, xiaoqu, price, sale) '
                              'VALUES(:city, :date, :district, :area, :xiaoqu, :price, :sale)',
                              city=city_ch, date=date, district=district, area=area, xiaoqu=xiaoqu, price=price,
                              sale=sale)
+                    '''
+                    batch_records.append({
+                        'city':city_ch,
+                        'date': date,
+                        'district': district,
+                        'area': area,
+                        'xiaoqu': xiaoqu,
+                        'price': price,
+                        'sale': sale
+                    })
+                    if count % batch == 0 :
+                        sql = "INSERT INTO xiaoqu (city, date, district, area, xiaoqu, price, sale) VALUES \n"
+                        for rec in batch_records:
+                            sql = sql + "('{}', '{}', '{}', '{}', '{}', {}, {}),\n"\
+                                .format(rec['city'], rec['date'], rec['district'], rec['area'], rec['xiaoqu'], rec['price'], rec['sale'])
+                        sql = sql[0:-2]
+                        db.query(sql)
+                        batch_records = []
                 # 写入mongodb数据库
                 elif database == "mongodb":
                     data = dict(city=city_ch, date=date, district=district, area=area, xiaoqu=xiaoqu, price=price,
@@ -157,6 +179,17 @@ if __name__ == '__main__':
                 elif database == "csv":
                     line = "{0};{1};{2};{3};{4};{5};{6}\n".format(city_ch, date, district, area, xiaoqu, price, sale)
                     csv_file.write(line)
+
+            if len(batch_records) > 0:
+                sql = "INSERT INTO xiaoqu (city, date, district, area, xiaoqu, price, sale) VALUES \n"
+                for rec in batch_records:
+                    sql = sql + "('{}', '{}', '{}', '{}', '{}', {}, {}),\n" \
+                        .format(rec['city'], rec['date'], rec['district'], rec['area'], rec['xiaoqu'], rec['price'],
+                                rec['sale'])
+                sql = sql[0:-2]
+                db.query(sql)
+                batch_records = []
+
 
     # 写入，并且关闭句柄
     if database == "excel":
