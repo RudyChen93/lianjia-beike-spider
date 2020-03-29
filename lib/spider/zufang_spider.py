@@ -28,7 +28,7 @@ class ZuFangBaseSpider(BaseSpider):
         """
         district_name = area_dict.get(area_name, "")
         csv_file = self.today_path + "/{0}_{1}.csv".format(district_name, area_name)
-        with open(csv_file, "w") as f:
+        with open(csv_file, mode="w", encoding="UTF-8") as f:
             # 开始获得需要的板块数据
             zufangs = self.get_area_zufang_info(city_name, area_name)
             # 锁定
@@ -89,12 +89,8 @@ class ZuFangBaseSpider(BaseSpider):
             soup = BeautifulSoup(html, "lxml")
 
             # 获得有小区信息的panel
-            if SPIDER_NAME == "lianjia":
-                ul_element = soup.find('ul', class_="house-lst")
-                house_elements = ul_element.find_all('li')
-            else:
-                ul_element = soup.find('div', class_="content__list")
-                house_elements = ul_element.find_all('div', class_="content__list--item")
+            ul_element = soup.find('div', class_="content__list")
+            house_elements = ul_element.find_all('div', class_="content__list--item")
 
             if len(house_elements) == 0:
                 continue
@@ -102,42 +98,32 @@ class ZuFangBaseSpider(BaseSpider):
             #     print(len(house_elements))
 
             for house_elem in house_elements:
-                if SPIDER_NAME == "lianjia":
-                    price = house_elem.find('span', class_="num")
-                    xiaoqu = house_elem.find('span', class_='region')
-                    layout = house_elem.find('span', class_="zone")
-                    size = house_elem.find('span', class_="meters")
-                else:
-                    price = house_elem.find('span', class_="content__list--item-price")
-                    desc1 = house_elem.find('p', class_="content__list--item--title")
-                    desc2 = house_elem.find('p', class_="content__list--item--des")
+                price = house_elem.find('span', class_="content__list--item-price")
+                desc1 = house_elem.find('p', class_="content__list--item--title")
+                desc2 = house_elem.find('p', class_="content__list--item--des")
 
                 try:
-                    if SPIDER_NAME == "lianjia":
-                        price = price.text.strip()
-                        xiaoqu = xiaoqu.text.strip().replace("\n", "")
-                        layout = layout.text.strip()
-                        size = size.text.strip()
-                    else:
-                        # 继续清理数据
-                        price = price.text.strip().replace(" ", "").replace("元/月", "")
-                        # print(price)
-                        desc1 = desc1.text.strip().replace("\n", "")
-                        desc2 = desc2.text.strip().replace("\n", "").replace(" ", "")
-                        # print(desc1)
+                    # 继续清理数据
+                    price = price.text.strip().replace(" ", "").replace("元/月", "")
+                    # print(price)
+                    abstract_url = desc1.find('a').get('href')
+                    url = 'http://{0}.{1}.com{2}'.format(city_name, SPIDER_NAME, abstract_url)
+                    desc1 = desc1.text.strip().replace("\n", "")
+                    desc2 = desc2.text.strip().replace("\n", "").replace(" ", "")
+                    # print(desc1)
 
-                        infos = desc1.split(' ')
-                        xiaoqu = infos[0]
-                        layout = infos[1]
-                        descs = desc2.split('/')
-                        # print(descs[1])
-                        size = descs[1].replace("㎡", "平米")
+                    infos = desc1.split(' ')
+                    xiaoqu = infos[0]
+                    layout = infos[1]
+                    descs = desc2.split('/')
+                    # print(descs[1])
+                    size = descs[1].replace("㎡", "平米")
 
                     # print("{0} {1} {2} {3} {4} {5} {6}".format(
                     #     chinese_district, chinese_area, xiaoqu, layout, size, price))
 
                     # 作为对象保存
-                    zufang = ZuFang(chinese_district, chinese_area, xiaoqu, layout, size, price)
+                    zufang = ZuFang(chinese_district, chinese_area, xiaoqu, layout, size, price, url)
                     zufang_list.append(zufang)
                 except Exception as e:
                     print("=" * 20 + " page no data")
@@ -191,5 +177,5 @@ class ZuFangBaseSpider(BaseSpider):
 
 
 if __name__ == '__main__':
-    # get_area_zufang_info("yt", "muping")
+    ZuFangBaseSpider.get_area_zufang_info("yt", "muping")
     pass
